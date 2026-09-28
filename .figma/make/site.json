@@ -1,0 +1,10 @@
+{
+  "description": "An AI-driven platform for monitoring, analyzing, and summarizing news across multiple digital media, providing insights and automated reporting for professionals.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
