@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { newsData, summaryText } from "../data/mockData";
 import { useNavigate } from "react-router-dom";
@@ -27,7 +27,28 @@ const keyPoints = [
 
 export default function Perangkuman() {
   const navigate = useNavigate();
-  const relevan = newsData.filter(n => n.relevansi === "Relevan");
+
+  const [relevantNews, setRelevantNews] = useState<typeof newsData>([]);
+
+  useEffect(() => {
+    const savedResult = sessionStorage.getItem("dinhas_search_result");
+
+    if (savedResult) {
+      try {
+        const data = JSON.parse(savedResult);
+
+        const results = data.results || [];
+
+        setRelevantNews(
+          results.filter((n: typeof newsData[number]) => n.relevansi === "Relevan")
+        );
+      } catch (error) {
+        console.error("Gagal membaca data perangkuman:", error);
+      }
+    }
+  }, []);
+
+  const relevan = relevantNews;
   const [selected, setSelected] = useState<Set<number>>(new Set(relevan.map(n => n.id)));
   const [processing, setProcessing] = useState(false);
   const [summaryDone, setSummaryDone] = useState(true);

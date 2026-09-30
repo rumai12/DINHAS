@@ -28,26 +28,63 @@ export default function PencarianKeyword() {
     "Menganalisis informasi",
   ];
 
-  const handleSearch = () => {
-    if (!keyword.trim()) return;
-    setDone(false);
-    setProcessing(true);
-    setSteps(processSteps.map((label, i) => ({ label, done: false, active: i === 0 })));
+  const handleSearch = async () => {
+  if (!keyword.trim()) return;
 
-    processSteps.forEach((_, i) => {
-      setTimeout(() => {
-        setSteps(prev => prev.map((s, j) => ({ ...s, done: j < i, active: j === i })));
-      }, i * 900);
-      if (i === processSteps.length - 1) {
-        setTimeout(() => {
-          setSteps(processSteps.map(label => ({ label, done: true, active: false })));
-          setDone(true);
-          setProcessing(false);
-          navigate("/monitoring");
-        }, (i + 1) * 900 + 400);
-      }
+  setDone(false);
+  setProcessing(true);
+  setSteps(
+    processSteps.map((label, i) => ({
+      label,
+      done: false,
+      active: i === 0,
+    }))
+  );
+
+  try {
+    const response = await fetch("http://localhost:5000/api/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        keyword: keyword.trim(),
+        dateFrom,
+        dateTo,
+        platform,
+      }),
     });
-  };
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Pencarian gagal");
+    }
+
+    sessionStorage.setItem(
+      "dinhas_search_result",
+      JSON.stringify(data)
+    );
+
+    setSteps(
+      processSteps.map(label => ({
+        label,
+        done: true,
+        active: false,
+      }))
+    );
+
+    setDone(true);
+    setProcessing(false);
+
+    navigate("/monitoring");
+  } catch (error) {
+    console.error("Search error:", error);
+    setProcessing(false);
+    setSteps([]);
+    alert("Gagal menghubungi backend. Pastikan server DINHAS berjalan.");
+  }
+};
 
   return (
     <Layout title="Pencarian Keyword" subtitle="Tentukan keyword atau isu yang ingin dipantau">

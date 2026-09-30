@@ -83,6 +83,39 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+app.post("/api/search", async (req, res) => {
+  const { keyword, dateFrom, dateTo, platform } = req.body;
+
+  console.log("Keyword diterima:", keyword);
+  console.log("Tanggal:", dateFrom, "sampai", dateTo);
+  console.log("Platform:", platform);
+
+  const results = [
+    {
+      id: 1,
+      judul: `Hasil berita untuk "${keyword}"`,
+      sumber: "Demo Source",
+      platform: platform === "Semua Platform" ? "Online" : platform,
+      tanggal: dateTo,
+      relevansi: "Relevan",
+      sentimen: "Netral",
+      topik: keyword,
+      status: "Baru",
+      konten: `Ini adalah data dummy hasil pencarian untuk keyword "${keyword}".`,
+      url: "https://example.com",
+    },
+  ];
+
+  res.json({
+    success: true,
+    keyword,
+    dateFrom,
+    dateTo,
+    platform,
+    results,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`DINHAS Backend berjalan di http://localhost:${PORT}`);
 });

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import {
   PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -33,11 +34,26 @@ function SectionLabel({ letter, title }: { letter: string; title: string }) {
 
 export default function AnalisisInformasi() {
   const navigate = useNavigate();
-  const relevan = newsData.filter(n => n.relevansi === "Relevan");
-  const tidakRelevan = newsData.filter(n => n.relevansi !== "Relevan");
-  const positif = newsData.filter(n => n.sentimen === "Positif").length;
-  const netral = newsData.filter(n => n.sentimen === "Netral").length;
-  const negatif = newsData.filter(n => n.sentimen === "Negatif").length;
+
+  const [analysisNews, setAnalysisNews] = useState<typeof newsData>([]);
+
+  useEffect(() => {
+    const savedResult = sessionStorage.getItem("dinhas_search_result");
+
+    if (savedResult) {
+      try {
+        const data = JSON.parse(savedResult);
+        setAnalysisNews(data.results || []);
+      } catch (error) {
+        console.error("Gagal membaca data analisis:", error);
+      }
+    }
+  }, []);
+   const relevan = analysisNews.filter(n => n.relevansi === "Relevan");
+   const tidakRelevan = analysisNews.filter(n => n.relevansi !== "Relevan");
+   const positif = analysisNews.filter(n => n.sentimen === "Positif").length;
+   const netral = analysisNews.filter(n => n.sentimen === "Netral").length;
+   const negatif = analysisNews.filter(n => n.sentimen === "Negatif").length;
 
   return (
     <Layout title="Analisis Informasi" subtitle="Hasil analisis komprehensif berita yang terkumpul">
@@ -46,10 +62,10 @@ export default function AnalisisInformasi() {
         <SectionLabel letter="A" title="Filtering Relevansi" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {[
-            { label: "Total Berita", value: newsData.length, color: NAVY, icon: <BarChart2 size={14} style={{ color: NAVY }} /> },
+            { label: "Total Berita", value: analysisNews.length, color: NAVY, icon: <BarChart2 size={14} style={{ color: NAVY }} /> },
             { label: "Berita Relevan", value: relevan.length, color: "#1D4ED8", icon: <CheckCircle size={14} style={{ color: "#1D4ED8" }} /> },
             { label: "Tidak Relevan", value: tidakRelevan.length, color: "#DC2626", icon: <XCircle size={14} style={{ color: "#DC2626" }} /> },
-            { label: "Persentase Relevan", value: `${Math.round(relevan.length / newsData.length * 100)}%`, color: "#16A34A", icon: <TrendingUp size={14} style={{ color: "#16A34A" }} /> },
+            { label: "Persentase Relevan", value: `${Math.round(relevan.length / analysisNews.length * 100)}%`, color: "#16A34A", icon: <TrendingUp size={14} style={{ color: "#16A34A" }} /> },
           ].map(item => (
             <div key={item.label} className="bg-white rounded-xl p-3 md:p-4 border" style={{ borderColor: "#E2E8F0" }}>
               <div className="flex items-center justify-between mb-2">
@@ -64,7 +80,7 @@ export default function AnalisisInformasi() {
         <div className="bg-white rounded-xl p-4 border mt-3" style={{ borderColor: "#E2E8F0" }}>
           <p className="text-xs font-medium mb-3" style={{ color: "#64748B" }}>Visualisasi proporsi relevansi</p>
           <div className="flex h-3 rounded-full overflow-hidden">
-            <div style={{ width: `${(relevan.length / newsData.length) * 100}%`, backgroundColor: "#1D4ED8" }} />
+            <div style={{ width: `${(relevan.length / analysisNews.length) * 100}%`, backgroundColor: "#1D4ED8" }} />
             <div style={{ flex: 1, backgroundColor: "#E2E8F0" }} />
           </div>
           <div className="flex gap-4 mt-2">

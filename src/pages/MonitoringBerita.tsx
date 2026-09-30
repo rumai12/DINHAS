@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { newsData } from "../data/mockData";
 import { Search, ExternalLink, Eye, X, Activity } from "lucide-react";
@@ -33,9 +33,26 @@ export default function MonitoringBerita() {
   const [search, setSearch] = useState("");
   const [filterSentimen, setFilterSentimen] = useState("Semua");
   const [filterRelevansi, setFilterRelevansi] = useState("Semua");
+  const [newsResults, setNewsResults] = useState<typeof newsData>([]);
+  const [activeKeyword, setActiveKeyword] = useState("");
   const [selected, setSelected] = useState<typeof newsData[0] | null>(null);
 
-  const filtered = newsData.filter(n => {
+  useEffect(() => {
+  const savedResult = sessionStorage.getItem("dinhas_search_result");
+
+  if (savedResult) {
+    try {
+      const data = JSON.parse(savedResult);
+
+      setNewsResults(data.results || []);
+      setActiveKeyword(data.keyword || "");
+    } catch (error) {
+      console.error("Gagal membaca hasil pencarian:", error);
+    }
+  }
+}, []);
+
+  const filtered = newsResults.filter(n => {
     const matchSearch = n.judul.toLowerCase().includes(search.toLowerCase()) || n.sumber.toLowerCase().includes(search.toLowerCase());
     const matchSentimen = filterSentimen === "Semua" || n.sentimen === filterSentimen;
     const matchRelevansi = filterRelevansi === "Semua" || n.relevansi === filterRelevansi;
@@ -47,10 +64,10 @@ export default function MonitoringBerita() {
       {/* Status bar — 2 cols on mobile, 4 on desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-5">
         {[
-          { label: "Keyword Aktif", value: "Kebakaran PT Anisa Jaya…", small: true },
+          { label: "Keyword Aktif", value: activeKeyword || "-", small: true },
           { label: "Waktu Pencarian", value: "21 Sep 2026, 09:14" },
-          { label: "Total Ditemukan", value: newsData.length, num: true },
-          { label: "Data Relevan", value: newsData.filter(n => n.relevansi === "Relevan").length, num: true },
+          { label: "Total Ditemukan", value: newsResults.length, num: true },
+          { label: "Data Relevan", value: newsResults.filter(n => n.relevansi === "Relevan").length, num: true },
         ].map((item, i) => (
           <div key={i} className="bg-white rounded-xl p-3 md:p-4 border" style={{ borderColor: "#E2E8F0" }}>
             <div className="flex items-center gap-1.5 mb-1">
