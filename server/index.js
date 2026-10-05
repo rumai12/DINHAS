@@ -36,8 +36,12 @@ app.get("/", (req, res) => {
 // ========================================
 
 app.get("/api/db-test", async (req, res) => {
+
   try {
-    const result = await pool.query("SELECT NOW() AS waktu");
+
+    const result = await pool.query(
+      "SELECT NOW() AS waktu"
+    );
 
     res.json({
       success: true,
@@ -46,13 +50,17 @@ app.get("/api/db-test", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+
+    console.error("DB TEST ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Database gagal terhubung!"
+      message: "Database gagal terhubung!",
+      error: error.message
     });
+
   }
+
 });
 
 
@@ -67,7 +75,9 @@ app.post("/api/login", async (req, res) => {
   try {
 
     const result = await pool.query(
-      "SELECT user_id, name, email, password FROM users WHERE email = $1",
+      `SELECT user_id, name, email, password
+       FROM users
+       WHERE email = $1`,
       [email]
     );
 
@@ -82,10 +92,11 @@ app.post("/api/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const passwordMatch =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
 
     if (!passwordMatch) {
 
@@ -112,11 +123,15 @@ app.post("/api/login", async (req, res) => {
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "LOGIN ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Terjadi kesalahan pada server"
+      message: "Terjadi kesalahan pada server",
+      error: error.message
     });
 
   }
@@ -143,8 +158,23 @@ app.post("/api/news", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO news
-      (title, content, source, url, published_at, keyword)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      (
+        title,
+        content,
+        source,
+        url,
+        published_at,
+        keyword
+      )
+      VALUES
+      (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6
+      )
       RETURNING *`,
       [
         title,
@@ -160,23 +190,30 @@ app.post("/api/news", async (req, res) => {
 
       success: true,
 
-      message: "Data news berhasil disimpan!",
+      message:
+        "Data news berhasil disimpan!",
 
-      data: result.rows[0]
+      data:
+        result.rows[0]
 
     });
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "NEWS INSERT ERROR:",
+      error
+    );
 
     res.status(500).json({
 
       success: false,
 
-      message: "Gagal menyimpan news",
+      message:
+        "Gagal menyimpan news",
 
-      error: error.message
+      error:
+        error.message
 
     });
 
@@ -186,53 +223,107 @@ app.post("/api/news", async (req, res) => {
 
 
 // ========================================
-// SEARCH + SCRAPING BERITA
+// SEARCH + SCRAPING BERITA REAL-TIME
 // ========================================
 
 app.post("/api/search", async (req, res) => {
 
   const { keyword } = req.body;
 
-  // Cek keyword
-  if (!keyword || keyword.trim() === "") {
+
+  // ====================================
+  // CEK KEYWORD
+  // ====================================
+
+  if (
+    !keyword ||
+    keyword.trim() === ""
+  ) {
 
     return res.status(400).json({
 
       success: false,
 
-      message: "Keyword wajib diisi"
+      message:
+        "Keyword wajib diisi"
 
     });
 
   }
 
+
   try {
 
-    const searchKeyword = keyword.trim();
+    const searchKeyword =
+      keyword.trim();
 
-    console.log("\n================================");
-    console.log("PENCARIAN USER");
-    console.log("Keyword:", searchKeyword);
-    console.log("================================");
+
+    // ====================================
+    // LOG PENCARIAN
+    // ====================================
+
+    console.log(
+      "\n================================"
+    );
+
+    console.log(
+      "PENCARIAN USER"
+    );
+
+    console.log(
+      "================================"
+    );
+
+    console.log(
+      "Keyword:",
+      searchKeyword
+    );
+
+    console.log(
+      "Waktu:",
+      new Date().toLocaleString("id-ID")
+    );
+
+    console.log(
+      "================================"
+    );
 
 
     // ====================================
     // 1. SCRAPING BERITA TERBARU
     // ====================================
 
-    const scraping = await scrapeNews(searchKeyword);
+    console.log(
+      "\nMulai scraping berita..."
+    );
 
 
-    // Kalau scraping gagal
-    if (!scraping.success) {
+    const scraping =
+      await scrapeNews(
+        searchKeyword
+      );
+
+
+    // ====================================
+    // 2. CEK SCRAPING
+    // ====================================
+
+    if (
+      !scraping ||
+      !scraping.success
+    ) {
 
       return res.status(500).json({
 
         success: false,
 
-        message: "Gagal mengambil berita",
+        message:
+          "Gagal mengambil berita",
 
-        error: scraping.message
+        error:
+          scraping
+            ? scraping.message
+            : "Scraper tidak mengembalikan hasil"
 
       });
 
@@ -240,56 +331,209 @@ app.post("/api/search", async (req, res) => {
 
 
     // ====================================
-    // 2. AMBIL BERITA DARI DATABASE
+    // 3. AMBIL BERITA DARI DATABASE
     // ====================================
 
-    const result = await pool.query(
+    console.log(
+      "\nMengambil berita dari database..."
+    );
 
-      `SELECT
-        title,
-        content,
-        source,
-        url,
-        published_at,
-        keyword
-      FROM news
-      WHERE keyword = $1
-      AND published_at >= NOW() - INTERVAL '48 hours'
-      ORDER BY published_at DESC`,
 
-      [searchKeyword]
+    const result =
+      await pool.query(
 
+        `SELECT
+          title,
+          content,
+          source,
+          url,
+          published_at,
+          keyword,
+          relevance
+        FROM news
+        WHERE keyword = $1
+        AND published_at >= NOW() - INTERVAL '48 hours'
+        ORDER BY published_at DESC`,
+
+        [searchKeyword]
+
+      );
+
+
+    // ====================================
+    // 4. FORMAT DATA UNTUK FRONTEND
+    // ====================================
+
+    const results =
+      result.rows.map(
+        (news, index) => {
+
+          return {
+
+            // ID untuk kebutuhan frontend.
+            // Bukan ID database.
+            id:
+              index + 1,
+
+            judul:
+              news.title,
+
+            sumber:
+              news.source,
+
+            platform:
+              "Google News",
+
+            tanggal:
+              news.published_at,
+
+            // AMBIL DARI DATABASE
+            relevansi:
+              news.relevance || "Kurang Relevan",
+
+            sentimen:
+              "Belum dianalisis",
+
+            topik:
+              searchKeyword,
+
+            status:
+              "Baru",
+
+            konten:
+              news.content,
+
+            url:
+              news.url
+
+          };
+
+        }
+      );
+
+
+    // ====================================
+    // 5. HITUNG JUMLAH RELEVANSI
+    // ====================================
+
+    const totalRelevan =
+      results.filter(
+        (news) =>
+          news.relevansi === "Relevan"
+      ).length;
+
+
+    const totalKurangRelevan =
+      results.filter(
+        (news) =>
+          news.relevansi === "Kurang Relevan"
+      ).length;
+
+
+    // ====================================
+    // 6. LOG HASIL
+    // ====================================
+
+    console.log(
+      "\n================================"
+    );
+
+    console.log(
+      "HASIL PENCARIAN"
+    );
+
+    console.log(
+      "================================"
+    );
+
+    console.log(
+      "Keyword:",
+      searchKeyword
+    );
+
+    console.log(
+      "Total berita:",
+      results.length
+    );
+
+    console.log(
+      "Relevan:",
+      totalRelevan
+    );
+
+    console.log(
+      "Kurang relevan:",
+      totalKurangRelevan
+    );
+
+    console.log(
+      "================================"
     );
 
 
     // ====================================
-    // 3. KIRIM HASIL KE FRONTEND
+    // 7. KIRIM KE FRONTEND
     // ====================================
 
-    res.json({
+    return res.json({
 
-      success: true,
+      success:
+        true,
 
-      keyword: searchKeyword,
+      keyword:
+        searchKeyword,
 
-      total: result.rows.length,
+      total:
+        results.length,
 
-      results: result.rows
+      totalRelevan,
+
+      totalKurangRelevan,
+
+      waktuPencarian:
+        new Date(),
+
+      results
 
     });
 
 
   } catch (error) {
 
-    console.error("Error search:", error);
+    console.error(
+      "\n================================"
+    );
 
-    res.status(500).json({
+    console.error(
+      "ERROR SEARCH"
+    );
 
-      success: false,
+    console.error(
+      "================================"
+    );
 
-      message: "Terjadi kesalahan saat mencari berita",
+    console.error(error);
 
-      error: error.message
+    console.error(
+      "Message:",
+      error.message
+    );
+
+    console.error(
+      "================================"
+    );
+
+
+    return res.status(500).json({
+
+      success:
+        false,
+
+      message:
+        "Terjadi kesalahan saat mencari berita",
+
+      error:
+        error.message
 
     });
 
@@ -302,10 +546,13 @@ app.post("/api/search", async (req, res) => {
 // JALANKAN SERVER
 // ========================================
 
-app.listen(PORT, () => {
+app.listen(
+  PORT,
+  () => {
 
-  console.log(
-    `DINHAS Backend berjalan di http://localhost:${PORT}`
-  );
+    console.log(
+      `DINHAS Backend berjalan di http://localhost:${PORT}`
+    );
 
-});
+  }
+);
