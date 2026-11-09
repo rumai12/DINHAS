@@ -63,6 +63,47 @@ app.get("/api/db-test", async (req, res) => {
 
 });
 
+/* ========================================
+   DASHBOARD STATISTIK
+======================================== */
+
+app.get("/api/dashboard/stats", async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        COUNT(*)::int AS total_berita,
+
+        COUNT(*) FILTER (
+          WHERE LOWER(TRIM(COALESCE(relevance, ''))) = 'relevan'
+        )::int AS berita_relevan,
+
+        COUNT(DISTINCT NULLIF(TRIM(source), ''))::int
+          AS total_sumber,
+
+        COUNT(*) FILTER (
+          WHERE published_at >= CURRENT_DATE
+            AND published_at < CURRENT_DATE + INTERVAL '1 day'
+        )::int AS berita_hari_ini
+
+      FROM news;
+    `;
+
+    const result = await pool.query(query);
+
+    return res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("DASHBOARD STATS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Gagal mengambil statistik dashboard"
+    });
+  }
+});
 
 // ========================================
 // LOGIN DINHAS
