@@ -1,6 +1,7 @@
+
 import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
-import { newsData, summaryText } from "../data/mockData";
+import { newsData } from "../data/mockData";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Edit, Save, CheckCircle, Sparkles } from "lucide-react";
 
@@ -17,18 +18,13 @@ function SentimentBadge({ value }: { value: string }) {
   return <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: s.bg, color: s.text }}>{value}</span>;
 }
 
-const keyPoints = [
-  "Kebakaran gudang PT Anisa Jaya Utama di Brebes terjadi pada 18 September 2026 dan menghanguskan ratusan ton bahan baku.",
-  "Dugaan awal penyebab adalah korsleting listrik, namun investigasi Labfor Polda Jateng masih berjalan.",
-  "Ratusan karyawan terancam PHK akibat kerugian produksi yang sangat besar.",
-  "Pemerintah Kabupaten Brebes cepat membentuk tim khusus penanganan dampak sosial-ekonomi pascakebakaran.",
-  "Bantuan dari pemerintah dan pihak swasta mulai diterima para korban terdampak pada 20–21 September 2026.",
-];
-
 export default function Perangkuman() {
   const navigate = useNavigate();
 
   const [relevantNews, setRelevantNews] = useState<typeof newsData>([]);
+  const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [summary, setSummary] = useState("");
 
   useEffect(() => {
     const savedResult = sessionStorage.getItem("dinhas_search_result");
@@ -39,9 +35,13 @@ export default function Perangkuman() {
 
         const results = data.results || [];
 
+        setSummary(data.data?.summary || "");
+        setKeyPoints(data.data?.keyPoints || []);
+
         setRelevantNews(
           results.filter((n: typeof newsData[number]) => n.relevansi === "Relevan")
         );
+
       } catch (error) {
         console.error("Gagal membaca data perangkuman:", error);
       }
@@ -49,10 +49,8 @@ export default function Perangkuman() {
   }, []);
 
   const relevan = relevantNews;
-  const [selected, setSelected] = useState<Set<number>>(new Set(relevan.map(n => n.id)));
   const [processing, setProcessing] = useState(false);
   const [summaryDone, setSummaryDone] = useState(true);
-  const [summary, setSummary] = useState(summaryText);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showNewsList, setShowNewsList] = useState(false);
@@ -66,11 +64,65 @@ export default function Perangkuman() {
     });
   };
 
-  const regenerate = () => {
-    setSummaryDone(false);
-    setProcessing(true);
-    setSaved(false);
-    setTimeout(() => { setProcessing(false); setSummaryDone(true); }, 2500);
+  const toggleSelectAll = () => {
+    if (selected.size === relevan.length && relevan.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(relevan.map(n => n.id)));
+    }
+  };
+
+  const regenerate = async () => {
+    
+    setSummary(data.data.summary);
+    setKeyPoints(data.data.keyPoints);
+
+    // SIMPAN DATA UNTUK HALAMAN INSIGHT
+    sessionStorage.setItem(
+      "dinhas_insight_input",
+      JSON.stringify({
+        articles: selectedArticles,
+        summary: data.data.summary,
+        keyPoints: data.data.keyPoints
+      })
+    );
+
+    setSummaryDone(true);
+
+
+    try {
+      const selectedArticles = relevantNews.filter(n =>
+        selected.has(n.id)
+      );
+
+      const response = await fetch("http://localhost:5000/api/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          articles: selectedArticles,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Gagal merangkum berita");
+      }
+
+      setSummary(data.data.summary);
+      setKeyPoints(data.data.keyPoints);
+      setSummaryDone(true);
+
+    } catch (error) {
+      console.error("SUMMARY ERROR:", error);
+      alert("Gagal melakukan perangkuman. Pastikan backend berjalan.");
+      setSummaryDone(false);
+
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleSave = () => {
@@ -107,6 +159,26 @@ export default function Perangkuman() {
         </button>
         {showNewsList && (
           <div className="bg-white rounded-xl border mt-2 divide-y overflow-hidden" style={{ borderColor: "#E2E8F0" }}>
+            {/* Pilih Semua */}
+            <div
+              className="px-4 py-3 flex items-center gap-3 cursor-pointer"
+              onClick={toggleSelectAll}
+            >
+              <div
+                className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                style={{
+                  borderColor: selected.size === relevan.length && relevan.length > 0 ? GOLD : "#CBD5E0",
+                  backgroundColor: selected.size === relevan.length && relevan.length > 0 ? GOLD : "transparent"
+                }}
+              >
+                {selected.size === relevan.length && relevan.length > 0 && (
+                  <CheckCircle size={10} className="text-white" />
+                )}
+              </div>
+              <span className="text-xs font-semibold" style={{ color: NAVY }}>
+              Pilih Semua 
+              </span>
+            </div>
             {relevan.map(n => (
               <div key={n.id} className="px-4 py-3 flex items-start gap-3 cursor-pointer" onClick={() => toggleSelect(n.id)}>
                 <div
@@ -135,6 +207,27 @@ export default function Perangkuman() {
           <div className="px-4 py-3 border-b" style={{ borderColor: "#F1F5F9" }}>
             <h3 className="font-semibold text-sm" style={{ color: NAVY, fontFamily: "DM Sans, sans-serif" }}>Berita yang Dirangkum</h3>
             <p className="text-xs mt-0.5" style={{ color: "#94A3B8" }}>Pilih berita yang akan disertakan</p>
+            <div
+              className="px-4 py-3 flex items-center gap-3 cursor-pointer border-b"
+              style={{ borderColor: "#F1F5F9" }}
+              onClick={toggleSelectAll}
+            >
+              <div
+                className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                style={{
+                  borderColor: selected.size === relevan.length && relevan.length > 0 ? GOLD : "#CBD5E0",
+                  backgroundColor: selected.size === relevan.length && relevan.length > 0 ? GOLD : "transparent"
+                }}
+              >
+                {selected.size === relevan.length && relevan.length > 0 && (
+                  <CheckCircle size={10} className="text-white" />
+                )}
+              </div>
+
+              <span className="text-xs font-semibold" style={{ color: NAVY }}>
+              Pilih Semua
+              </span>
+            </div>
           </div>
           <div className="divide-y overflow-y-auto" style={{ maxHeight: "560px", borderColor: "#F1F5F9" }}>
             {relevan.map(n => (
